@@ -553,6 +553,10 @@ for msg in st.session_state.messages:
                 if details.get("planner"):
                     p = details["planner"]
                     st.caption(f"🎯 **Intent:** `{p.get('intent')}` | **Retrieval Query:** `{p.get('retrieval_query')}`")
+                if details.get("retrieval"):
+                    r = details["retrieval"]
+                    retrieval_method = r.get("method", "Semantic Hybrid Search")
+                    st.caption(f"🔍 **Retrieval Strategy:** `{retrieval_method}` | **Evidence Chunks:** `{r.get('chunks_retrieved')}`")
                 if details.get("evidence_analyst"):
                     ea = details["evidence_analyst"]
                     st.caption(f"🔬 **Expanded Query:** `{ea.get('expansion_query')}`")

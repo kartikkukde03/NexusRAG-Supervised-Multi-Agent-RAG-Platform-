@@ -183,6 +183,7 @@ class MultiAgentRAGGraph:
         details["retrieval"] = {
             "chunks_retrieved": len(evidence_chunks),
             "scope": doc_scope or "all documents",
+            "method": "Hierarchical Map-Reduce (100% chunks scanned & distilled across all sections)" if intent == "full_doc" else "Semantic Hybrid Search",
             "has_table": any(r.get("content_type") == "table" for r in evidence_chunks),
             "tools_used": [t.name for t in self.research_agent.tools],
         }

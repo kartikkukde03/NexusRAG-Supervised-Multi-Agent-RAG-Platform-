@@ -417,26 +417,34 @@ class DocumentSummaryAgent:
         if not clusters:
             return all_chunks[:max_total_chunks]
 
-        # Extract representative evidence chunks across all clusters/sections
-        # ensuring 100% document coverage without extra LLM latency before WriterAgent runs
+        # Case A: Small document or single cluster (<= 6 chunks)
+        # Directly pass the chunks without extra Map overhead
+        if len(clusters) <= 1:
+            return all_chunks[:max_total_chunks]
+
+        # Case B: Multi-cluster document (> 1 cluster, e.g., 10 clusters for DCPR 2034)
+        # Execute Map Phase: Distill 100% of chunks across all clusters concurrently
+        digests = self.map_all_clusters(clusters, filename)
         evidence_chunks = []
-        chunks_per_cluster = max(1, max_total_chunks // len(clusters))
+        for i, d in enumerate(digests):
+            evidence_chunks.append(
+                {
+                    "source_id": f"S{i + 1}",
+                    "filename": filename,
+                    "page_number": d["page_start"],
+                    "section": d["section_name"],
+                    "content": f"### {d['section_name']} (Pages {d['page_start']}-{d['page_end']})\n{d['digest']}",
+                    "content_type": "text",
+                }
+            )
 
-        for cluster in clusters:
-            for c in cluster["chunks"][:chunks_per_cluster]:
-                evidence_chunks.append(c)
-                if len(evidence_chunks) >= max_total_chunks:
-                    break
-            if len(evidence_chunks) >= max_total_chunks:
-                break
+        # Cache for sub-second repeat queries
+        self._summary_cache[filename] = {
+            "summary": "",
+            "evidence_chunks": evidence_chunks,
+            "digests": digests,
+            "total_chunks": len(all_chunks),
+            "clusters_count": len(clusters),
+        }
 
-        # If we have remaining capacity, add remaining chunks in document order
-        if len(evidence_chunks) < min(len(all_chunks), max_total_chunks):
-            existing_ids = {id(c) for c in evidence_chunks}
-            for c in all_chunks:
-                if id(c) not in existing_ids:
-                    evidence_chunks.append(c)
-                    if len(evidence_chunks) >= max_total_chunks:
-                        break
-
-        return evidence_chunks
+        return evidence_chunks[:max_total_chunks]
