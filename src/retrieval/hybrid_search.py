@@ -379,6 +379,24 @@ class HybridSearchEngine:
         matched.sort(key=lambda x: (x.get("page_number", 0), x.get("chunk_index", 0)))
         return matched[:max_chunks]
 
+    def get_all_document_chunks(self, filename: str) -> List[dict]:
+        """
+        Retrieve all stored chunks for a specific document, ordered by page and chunk index.
+        """
+        collections = self._collections_in_scope(filename)
+        if not collections:
+            return []
+        collection = collections[0]
+        results = collection.get(include=["documents", "metadatas"])
+        docs = results.get("documents", [])
+        metas = results.get("metadatas", [])
+        all_items = []
+        for content, meta in zip(docs, metas):
+            meta_dict = dict(meta or {})
+            all_items.append({**meta_dict, "content": content})
+        all_items.sort(key=lambda x: (x.get("page_number", 0), x.get("chunk_index", 0)))
+        return all_items
+
     def get_document_outline(self, filename: str) -> dict:
         """
         Inspect document collection to extract structural overview and milestone chunks across all pages.

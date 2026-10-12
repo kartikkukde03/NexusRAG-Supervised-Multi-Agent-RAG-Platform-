@@ -117,7 +117,7 @@ class PlannerAgent:
                     target=None,
                     retrieval_query=retrieval_query,
                     start_page=1,
-                    end_page=18,
+                    end_page=None,
                 )
             elif intent == "section" and target:
                 return PlannerOutput(

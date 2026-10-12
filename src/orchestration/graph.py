@@ -135,12 +135,23 @@ class MultiAgentRAGGraph:
         top_k: int,
     ) -> List[Dict[str, Any]]:
         """Dispatch retrieval to the DocumentSummaryAgent or ResearchAgent via exposed tools."""
-        if intent == "full_doc" and doc_scope:
-            return self.summary_agent.gather_full_document_evidence(
-                filename=doc_scope,
-                query=query_text,
-                max_total_chunks=max(top_k, 18),
-            )
+        if intent == "full_doc":
+            resolved_scope = doc_scope
+            if not resolved_scope and hasattr(self.vectorstore, "list_files"):
+                available = self.vectorstore.list_files()
+                for f in available:
+                    if f.lower() in query_text.lower():
+                        resolved_scope = f
+                        break
+                if not resolved_scope and len(available) == 1:
+                    resolved_scope = available[0]
+
+            if resolved_scope:
+                return self.summary_agent.gather_full_document_evidence(
+                    filename=resolved_scope,
+                    query=query_text,
+                    max_total_chunks=max(top_k, 18),
+                )
         return self.research_agent.research(
             intent=intent,
             target=target,

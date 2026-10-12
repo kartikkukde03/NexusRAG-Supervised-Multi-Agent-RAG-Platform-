@@ -428,6 +428,9 @@ with st.sidebar:
             🔢 {st.session_state.chunk_count} chunks indexed
         </div>
         """, unsafe_allow_html=True)
+        if st.button("📋 Summarize Whole Document", key="btn_whole_doc_summary", use_container_width=True, type="secondary"):
+            st.session_state["trigger_summary_query"] = f"Provide a complete whole document summary of {st.session_state.doc_name}"
+            st.rerun()
     elif stored:
         st.markdown(f"""
         <div class="status-ready">
@@ -568,6 +571,9 @@ prompt = st.chat_input(
     ),
     disabled=not st.session_state.doc_ready and not stored,
 )
+
+if not prompt and st.session_state.get("trigger_summary_query"):
+    prompt = st.session_state.pop("trigger_summary_query")
 
 if prompt:
     # Show user message

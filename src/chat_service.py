@@ -316,6 +316,25 @@ class ChatService:
             self._last_citation_error = last_result.citation_error
             self._last_trace = last_result.trace
 
+    def summarize_document(self, filename: Optional[str] = None) -> str:
+        """
+        Generate a complete whole-document executive summary using Hierarchical Map-Reduce.
+        """
+        target_filename = filename or getattr(self, "ingested_filename", None)
+        if not target_filename:
+            files = self.previously_ingested_files()
+            if files:
+                target_filename = files[0]
+            else:
+                return "⚠️ No document loaded. Please upload a file first."
+
+        graph = self._get_or_create_graph()
+        summary_agent = getattr(graph, "summary_agent", None)
+        if summary_agent:
+            return summary_agent.summarize_document(target_filename)
+
+        return self.ask(f"Provide a comprehensive full document summary of {target_filename}", filename=target_filename)
+
     # ── Sources & Trace ────────────────────────────────────────────────────────
 
     def get_last_sources(self) -> List[dict]:
