@@ -157,6 +157,40 @@ class TestHierarchicalDocumentSummary(unittest.TestCase):
         self.assertIn("retrieval", result.trace["steps"])
         self.assertGreater(len(result.sources), 0)
 
+    def test_adaptive_scaling_for_400_page_document(self):
+        """Simulate a 400-page document with 800 chunks and verify it forms 8-14 clusters."""
+        simulated_chunks = []
+        for p in range(1, 401):
+            simulated_chunks.append({
+                "filename": "massive_code_400p.pdf",
+                "page_number": p,
+                "chunk_index": 0,
+                "section": f"Chapter {(p // 40) + 1}",
+                "content": f"Text from page {p} of the 400-page document.",
+            })
+            simulated_chunks.append({
+                "filename": "massive_code_400p.pdf",
+                "page_number": p,
+                "chunk_index": 1,
+                "section": f"Chapter {(p // 40) + 1}",
+                "content": f"Additional content from page {p}.",
+            })
+
+        agent = DocumentSummaryAgent(vectorstore=None, llm_invoker=None)
+        clusters = agent.partition_chunks(simulated_chunks)
+
+        # Total clusters must be between 8 and 14 (safe for API rate limits and low latency)
+        self.assertGreaterEqual(len(clusters), 8)
+        self.assertLessEqual(len(clusters), 14)
+
+        # Verify 100% chunk coverage
+        total_covered = sum(len(c["chunks"]) for c in clusters)
+        self.assertEqual(total_covered, 800)
+
+        # Verify start and end span
+        self.assertEqual(clusters[0]["page_start"], 1)
+        self.assertEqual(clusters[-1]["page_end"], 400)
+
 
 if __name__ == "__main__":
     unittest.main()

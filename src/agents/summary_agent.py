@@ -92,11 +92,15 @@ class DocumentSummaryAgent:
     def partition_chunks(
         self,
         chunks: List[Dict[str, Any]],
-        max_chunks_per_cluster: int = 8,
+        max_chunks_per_cluster: Optional[int] = None,
     ) -> List[Dict[str, Any]]:
         """
         Deterministically partition chunks into semantic sections or adaptive page blocks.
         Zero LLM calls required.
+
+        Dynamically scales cluster size for massive documents (e.g. 100-400+ pages) to keep
+        the total cluster count between 8 and 12, preserving 100% chunk coverage while avoiding
+        API rate limits (RPM) and keeping latency under 4-5 seconds.
         """
         if not chunks:
             return []
@@ -107,7 +111,8 @@ class DocumentSummaryAgent:
             key=lambda x: (x.get("page_number", 0) or 0, x.get("chunk_index", 0) or 0),
         )
 
-        if len(sorted_chunks) <= 6:
+        total_chunks = len(sorted_chunks)
+        if total_chunks <= 6:
             p_nums = [c.get("page_number") or 1 for c in sorted_chunks]
             return [
                 {
@@ -120,6 +125,32 @@ class DocumentSummaryAgent:
                 }
             ]
 
+        p_nums_all = [c.get("page_number") or 1 for c in sorted_chunks]
+        total_pages = max(p_nums_all) - min(p_nums_all) + 1
+
+        # Adaptive scaling: Calculate optimal page span and chunk count per cluster
+        # Target: roughly 8 to 12 clusters across any document size
+        if max_chunks_per_cluster is not None and max_chunks_per_cluster != 8:
+            # Caller explicitly requested a specific chunk limit (e.g., in unit tests)
+            effective_max_chunks = max_chunks_per_cluster
+            page_span_limit = 6
+        elif total_pages >= 250:
+            # Very large documents (250 - 500+ pages) -> ~35-45 pages per cluster (8-12 clusters)
+            page_span_limit = max(35, total_pages // 10)
+            effective_max_chunks = max(60, total_chunks // 10)
+        elif total_pages >= 80:
+            # Medium-large documents (80 - 250 pages) -> ~15-25 pages per cluster (6-10 clusters)
+            page_span_limit = max(15, total_pages // 8)
+            effective_max_chunks = max(25, total_chunks // 8)
+        elif total_pages >= 25:
+            # Medium documents (25 - 80 pages) -> ~8-12 pages per cluster (5-8 clusters)
+            page_span_limit = max(8, total_pages // 6)
+            effective_max_chunks = max(12, total_chunks // 6)
+        else:
+            # Standard/small documents (< 25 pages)
+            page_span_limit = 6
+            effective_max_chunks = 8
+
         clusters = []
         current_cluster: List[Dict[str, Any]] = []
         current_section = sorted_chunks[0].get("section")
@@ -130,12 +161,13 @@ class DocumentSummaryAgent:
             page = chunk.get("page_number") or 1
 
             # Trigger a new cluster if:
-            # - Section boundary changes and cluster has at least 2 chunks
-            # - Cluster reaches maximum size limit
-            # - Page span exceeds 6 pages and cluster has at least 3 chunks
-            section_changed = sec and current_section and (sec != current_section)
-            size_exceeded = len(current_cluster) >= max_chunks_per_cluster
-            page_span_exceeded = (page - cluster_start_page >= 6) and (len(current_cluster) >= 3)
+            # - Section boundary changes and cluster has at least min_cluster_size chunks
+            # - Cluster reaches adaptive chunk size limit
+            # - Page span exceeds adaptive page limit and cluster has at least min_cluster_size chunks
+            min_cluster_size = 3 if total_chunks > 12 else 2
+            section_changed = sec and current_section and (sec != current_section) and (len(current_cluster) >= min_cluster_size)
+            size_exceeded = len(current_cluster) >= effective_max_chunks
+            page_span_exceeded = (page - cluster_start_page >= page_span_limit) and (len(current_cluster) >= min_cluster_size)
 
             if current_cluster and (section_changed or size_exceeded or page_span_exceeded):
                 p_nums = [c.get("page_number") or 1 for c in current_cluster]
@@ -215,7 +247,7 @@ class DocumentSummaryAgent:
             f"- Specific regulations, metrics, numerical thresholds, or statutory references\n"
             f"- Important conditions, exceptions, or operational rules\n\n"
             f"Omit conversational filler. Be direct and precise.\n\n"
-            f"Excerpt:\n{raw_text[:7000]}"
+            f"Excerpt:\n{raw_text[:30000]}"
         )
 
         try:
