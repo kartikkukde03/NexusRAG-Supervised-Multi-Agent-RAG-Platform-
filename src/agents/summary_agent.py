@@ -253,7 +253,7 @@ class DocumentSummaryAgent:
             f"- Specific regulations, metrics, numerical thresholds, or statutory references\n"
             f"- Important conditions, exceptions, or operational rules\n\n"
             f"Omit conversational filler. Be direct and precise.\n\n"
-            f"Excerpt:\n{raw_text[:30000]}"
+            f"Full Section Excerpts ({len(cluster['chunks'])} chunks across pages {p_start} to {p_end}):\n{raw_text[:500000]}"
         )
 
         try:
