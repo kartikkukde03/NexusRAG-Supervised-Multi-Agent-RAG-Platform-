@@ -144,8 +144,37 @@ class ChatService:
             return str(content.text)
         return str(content or "")
 
+    @staticmethod
+    def _prepare_messages(messages: list) -> list:
+        """
+        Ensure messages have valid content and include at least one user turn for Gemini API.
+        Prevents 'contents are required.' ClientError when only SystemMessage is sent.
+        """
+        from langchain_core.messages import HumanMessage, SystemMessage
+        if not messages:
+            return [HumanMessage(content="Please assist.")]
+
+        has_human = any(
+            isinstance(m, HumanMessage)
+            or getattr(m, "type", "") == "human"
+            or (isinstance(m, dict) and m.get("role") == "user")
+            for m in messages
+        )
+        if not has_human:
+            sanitized = []
+            for m in messages:
+                content = getattr(m, "content", "") if not isinstance(m, dict) else m.get("content", "")
+                if isinstance(m, SystemMessage) or (isinstance(m, dict) and m.get("role") == "system"):
+                    sanitized.append(HumanMessage(content=str(content or "Please analyze.")))
+                else:
+                    sanitized.append(m)
+            return sanitized
+
+        return messages
+
     def _invoke_llm(self, messages: list) -> str:
         """Invoke primary LLM with automatic fallback on error."""
+        messages = self._prepare_messages(messages)
         try:
             resp = self.llm.invoke(messages)
             return self._extract_text_content(resp.content)
@@ -159,6 +188,7 @@ class ChatService:
 
     def _stream_llm(self, messages: list) -> Generator[str, None, None]:
         """Stream tokens from primary LLM with automatic fallback on failure."""
+        messages = self._prepare_messages(messages)
         if hasattr(self.llm, "stream"):
             had_tokens = False
             try:

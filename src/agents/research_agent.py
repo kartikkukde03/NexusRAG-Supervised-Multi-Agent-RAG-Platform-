@@ -54,7 +54,7 @@ class EvidenceSufficiencyAnalyst:
         is_test_mock = hasattr(self.llm_invoker, "responses") or hasattr(self.llm_invoker, "messages")
         if self.llm_invoker and not is_test_mock:
             try:
-                from langchain_core.messages import SystemMessage
+                from langchain_core.messages import HumanMessage
                 context = "\n---\n".join(c.get("content", "")[:300] for c in evidence_chunks[:2])
                 prompt = (
                     f"User Query: '{query}'\n\n"
@@ -62,7 +62,7 @@ class EvidenceSufficiencyAnalyst:
                     "Does this retrieved excerpt contain sufficient, relevant information to answer the user query? "
                     "Respond with ONLY 'YES' or 'NO'."
                 )
-                res = self.llm_invoker([SystemMessage(content=prompt)])
+                res = self.llm_invoker([HumanMessage(content=prompt)])
                 if res and isinstance(res, str):
                     clean = res.strip().upper()
                     if "YES" in clean:
@@ -90,13 +90,13 @@ class EvidenceSufficiencyAnalyst:
         cleaned = " ".join(query.strip().split())
         if self.llm_invoker:
             try:
-                from langchain_core.messages import SystemMessage
+                from langchain_core.messages import HumanMessage
                 prompt = (
                     f"The user asked: '{query}', but initial document retrieval lacked complete evidence. "
                     "Provide an expanded 3 to 6 word retrieval query containing alternative keywords, synonyms, "
                     "or specifications to locate the missing sections. Return ONLY the search query."
                 )
-                res = self.llm_invoker([SystemMessage(content=prompt)])
+                res = self.llm_invoker([HumanMessage(content=prompt)])
                 if res and isinstance(res, str) and res.strip():
                     expanded = res.strip().strip('"')
                     if "specifications" not in expanded.casefold() and ("requirement" in query.casefold() or "spec" in query.casefold()):

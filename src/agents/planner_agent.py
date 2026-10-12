@@ -97,7 +97,7 @@ class PlannerAgent:
         )
 
         try:
-            raw_response = self.llm_invoker([SystemMessage(content=prompt)])
+            raw_response = self.llm_invoker([HumanMessage(content=prompt)])
             if not raw_response or not isinstance(raw_response, str):
                 return None
 

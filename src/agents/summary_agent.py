@@ -17,7 +17,7 @@ import logging
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Any, Callable, Dict, List, Optional
 
-from langchain_core.messages import SystemMessage
+from langchain_core.messages import HumanMessage, SystemMessage
 
 logger = logging.getLogger(__name__)
 
@@ -251,7 +251,7 @@ class DocumentSummaryAgent:
         )
 
         try:
-            digest_text = self.llm_invoker([SystemMessage(content=prompt)]).strip()
+            digest_text = self.llm_invoker([HumanMessage(content=prompt)]).strip()
         except Exception as e:
             logger.debug("Map cluster LLM invocation failed: %s", e)
             lines = [l.strip() for l in raw_text.splitlines() if l.strip()]
@@ -343,7 +343,7 @@ class DocumentSummaryAgent:
         )
 
         try:
-            return self.llm_invoker([SystemMessage(content=reduce_prompt)]).strip()
+            return self.llm_invoker([HumanMessage(content=reduce_prompt)]).strip()
         except Exception as e:
             logger.error("Reduce synthesis failed: %s", e)
             return (
