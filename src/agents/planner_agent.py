@@ -171,14 +171,17 @@ class PlannerAgent:
             lowered,
         )
 
-        is_summary_request = any(
-            term in lowered
-            for term in [
-                "summary", "summarize", "overview", "gist", "brief",
-                "takeaway", "takeaways", "recap", "synopsis", "outline",
-                "breakdown", "highlights", "key points", "entire document",
-                "whole document", "whole file", "all pages",
-            ]
+        is_summary_request = (
+            bool(re.search(r"\bsummar\w*\b", lowered))
+            or any(
+                term in lowered
+                for term in [
+                    "overview", "gist", "brief",
+                    "takeaway", "takeaways", "recap", "synopsis", "outline",
+                    "breakdown", "highlights", "key points", "entire document",
+                    "whole document", "whole file", "all pages",
+                ]
+            )
         )
 
         if is_summary_request:
@@ -234,7 +237,7 @@ class PlannerAgent:
     def detect_summary_intent(query: str) -> Tuple[str, Optional[str]]:
         """Backward-compatible alias for summary intent detection."""
         lowered = query.casefold().strip()
-        if "summary" in lowered or "summarize" in lowered or "overview" in lowered:
+        if bool(re.search(r"\bsummar\w*\b", lowered)) or "overview" in lowered:
             match = re.search(r"\b(chapter\s*\d+|section\s*[\d\.]+|table\s*[0-9a-zA-Z]+)\b", lowered)
             if match:
                 return "section", match.group(1).strip()
