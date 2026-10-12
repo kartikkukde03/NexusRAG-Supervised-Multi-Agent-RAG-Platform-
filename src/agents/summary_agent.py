@@ -129,27 +129,27 @@ class DocumentSummaryAgent:
         total_pages = max(p_nums_all) - min(p_nums_all) + 1
 
         # Adaptive scaling: Calculate optimal page span and chunk count per cluster
-        # Target: roughly 8 to 12 clusters across any document size
+        # Target: 3 to 4 clusters maximum to strictly respect Gemini 15 RPM Free Tier rate limits
         if max_chunks_per_cluster is not None and max_chunks_per_cluster != 8:
             # Caller explicitly requested a specific chunk limit (e.g., in unit tests)
             effective_max_chunks = max_chunks_per_cluster
             page_span_limit = 6
-        elif total_pages >= 250:
-            # Very large documents (250 - 500+ pages) -> ~35-45 pages per cluster (8-12 clusters)
-            page_span_limit = max(35, total_pages // 10)
-            effective_max_chunks = max(60, total_chunks // 10)
-        elif total_pages >= 80:
-            # Medium-large documents (80 - 250 pages) -> ~15-25 pages per cluster (6-10 clusters)
-            page_span_limit = max(15, total_pages // 8)
-            effective_max_chunks = max(25, total_chunks // 8)
-        elif total_pages >= 25:
-            # Medium documents (25 - 80 pages) -> ~8-12 pages per cluster (5-8 clusters)
-            page_span_limit = max(8, total_pages // 6)
-            effective_max_chunks = max(12, total_chunks // 6)
+        elif total_pages >= 150:
+            # Massive documents (150 - 500+ pages) -> ~80-120 pages per cluster (3-4 clusters)
+            page_span_limit = max(80, total_pages // 4)
+            effective_max_chunks = max(150, total_chunks // 4)
+        elif total_pages >= 40:
+            # Medium-large documents (40 - 150 pages) -> ~25-45 pages per cluster (3 clusters)
+            page_span_limit = max(25, total_pages // 3)
+            effective_max_chunks = max(40, total_chunks // 3)
+        elif total_pages >= 15:
+            # Small-medium documents (15 - 40 pages) -> ~10-20 pages per cluster (2 clusters)
+            page_span_limit = max(10, total_pages // 2)
+            effective_max_chunks = max(15, total_chunks // 2)
         else:
-            # Standard/small documents (< 25 pages)
-            page_span_limit = 6
-            effective_max_chunks = 8
+            # Small documents (< 15 pages)
+            page_span_limit = 15
+            effective_max_chunks = 25
 
         clusters = []
         current_cluster: List[Dict[str, Any]] = []
@@ -160,14 +160,20 @@ class DocumentSummaryAgent:
             sec = chunk.get("section")
             page = chunk.get("page_number") or 1
 
-            # Trigger a new cluster if:
-            # - Section boundary changes and cluster has at least min_cluster_size chunks
-            # - Cluster reaches adaptive chunk size limit
-            # - Page span exceeds adaptive page limit and cluster has at least min_cluster_size chunks
-            min_cluster_size = 3 if total_chunks > 12 else 2
-            section_changed = sec and current_section and (sec != current_section) and (len(current_cluster) >= min_cluster_size)
-            size_exceeded = len(current_cluster) >= effective_max_chunks
-            page_span_exceeded = (page - cluster_start_page >= page_span_limit) and (len(current_cluster) >= min_cluster_size)
+            # In large documents, split at clean section boundaries once page_span_limit is reached
+            if max_chunks_per_cluster is not None and max_chunks_per_cluster != 8:
+                section_changed = sec and current_section and (sec != current_section) and (len(current_cluster) >= 2)
+                size_exceeded = len(current_cluster) >= effective_max_chunks
+                page_span_exceeded = page - cluster_start_page >= page_span_limit
+            else:
+                section_changed = (
+                    sec
+                    and current_section
+                    and (sec != current_section)
+                    and (len(current_cluster) >= effective_max_chunks or (page - cluster_start_page >= page_span_limit))
+                )
+                size_exceeded = len(current_cluster) >= int(effective_max_chunks * 1.3)
+                page_span_exceeded = page - cluster_start_page >= int(page_span_limit * 1.3)
 
             if current_cluster and (section_changed or size_exceeded or page_span_exceeded):
                 p_nums = [c.get("page_number") or 1 for c in current_cluster]

@@ -174,21 +174,55 @@ class ChatService:
 
     def _invoke_llm(self, messages: list) -> str:
         """Invoke primary LLM with automatic fallback on error."""
+        import time
         messages = self._prepare_messages(messages)
+        fallback = getattr(self, "fallback_llm", None)
+        cooldown = getattr(self, "_primary_cooldown_until", 0.0)
+
+        # If primary (Gemini) is in active 429 cooldown, route immediately to Groq fallback
+        if fallback is not None and time.time() < cooldown:
+            resp = fallback.invoke(messages)
+            return self._extract_text_content(resp.content)
+
         try:
             resp = self.llm.invoke(messages)
             return self._extract_text_content(resp.content)
         except Exception as primary_err:
-            fallback = getattr(self, "fallback_llm", None)
-            if fallback is not None:
+            err_str = str(primary_err)
+            if "429" in err_str or "RESOURCE_EXHAUSTED" in err_str:
+                self._primary_cooldown_until = time.time() + 60.0
+                print("[RAGPipeline] Gemini 15 RPM Free Tier quota reached. Routing queries to Groq fallback for 60s...")
+            else:
                 print(f"[RAGPipeline] Primary LLM failed ({primary_err}). Falling back...")
+
+            if fallback is not None:
                 resp = fallback.invoke(messages)
                 return self._extract_text_content(resp.content)
             raise primary_err
 
     def _stream_llm(self, messages: list) -> Generator[str, None, None]:
         """Stream tokens from primary LLM with automatic fallback on failure."""
+        import time
         messages = self._prepare_messages(messages)
+        fallback = getattr(self, "fallback_llm", None)
+        cooldown = getattr(self, "_primary_cooldown_until", 0.0)
+
+        if fallback is not None and time.time() < cooldown:
+            if hasattr(fallback, "stream"):
+                try:
+                    for chunk in fallback.stream(messages):
+                        text = self._extract_text_content(chunk.content)
+                        if text:
+                            yield text
+                    return
+                except Exception:
+                    pass
+            resp = fallback.invoke(messages)
+            text = self._extract_text_content(resp.content)
+            if text:
+                yield text
+            return
+
         if hasattr(self.llm, "stream"):
             had_tokens = False
             try:
@@ -198,9 +232,12 @@ class ChatService:
                         had_tokens = True
                         yield text
             except Exception as primary_err:
-                fallback = getattr(self, "fallback_llm", None)
+                err_str = str(primary_err)
+                if "429" in err_str or "RESOURCE_EXHAUSTED" in err_str:
+                    self._primary_cooldown_until = time.time() + 60.0
+                    print("[RAGPipeline] Gemini 15 RPM Free Tier quota reached. Streaming via Groq fallback for 60s...")
+
                 if fallback is not None and not had_tokens:
-                    print(f"[ChatService] Primary LLM streaming failed ({primary_err}). Falling back...")
                     if hasattr(fallback, "stream"):
                         try:
                             for chunk in fallback.stream(messages):

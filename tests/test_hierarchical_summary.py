@@ -110,12 +110,10 @@ class TestHierarchicalDocumentSummary(unittest.TestCase):
 
     def test_map_reduce_with_llm_and_caching(self):
         fake_vs = _FakeVectorStore(self.sample_chunks)
-        # Mock responses: map phase returns bullet digests, reduce returns executive summary
+        # Mock responses: map phase returns bullet digests (2 clusters), reduce returns executive summary
         mock_llm = _FakeChatModel([
-            "- Residential height limit 15m.\n- Setback 3m.",
-            "- Commercial parking 2 spaces/100m².\n- FSI 2.5.",
-            "- Rainwater harvesting mandatory over 500m².\n- Solar rebate 5%.",
-            "- Penalties up to 3x fees.",
+            "- Residential height limit 15m.\n- Commercial parking 2 spaces/100m².",
+            "- Rainwater harvesting mandatory over 500m².\n- Penalties up to 3x fees.",
             "# Executive Summary\n\nFull synthesis of all regulations [S1] [S2].",
         ])
         agent = DocumentSummaryAgent(vectorstore=fake_vs, llm_invoker=mock_llm)
@@ -179,9 +177,9 @@ class TestHierarchicalDocumentSummary(unittest.TestCase):
         agent = DocumentSummaryAgent(vectorstore=None, llm_invoker=None)
         clusters = agent.partition_chunks(simulated_chunks)
 
-        # Total clusters must be between 8 and 14 (safe for API rate limits and low latency)
-        self.assertGreaterEqual(len(clusters), 8)
-        self.assertLessEqual(len(clusters), 14)
+        # Total clusters must be between 3 and 6 (safe for Gemini 15 RPM Free Tier rate limits)
+        self.assertGreaterEqual(len(clusters), 3)
+        self.assertLessEqual(len(clusters), 6)
 
         # Verify 100% chunk coverage
         total_covered = sum(len(c["chunks"]) for c in clusters)
