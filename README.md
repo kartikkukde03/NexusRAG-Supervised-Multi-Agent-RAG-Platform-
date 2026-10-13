@@ -1,4 +1,4 @@
-# Multi-Agent RAG System 🧠📚
+# DocChat AI — Multi-Agent RAG System 🧠📚
 
 > **A production-grade, supervised multi-agent Retrieval-Augmented Generation (RAG) platform with LangGraph orchestration, Section-Aware Hierarchical Map-Reduce, deterministic table calculations, and zero-hallucination page citations.**
 
@@ -144,7 +144,7 @@ rag_chatbot_multiagent/
 ├── tests/                      # Automated test suite (Pytest)
 │   ├── test_hierarchical_summary.py
 │   └── test_session_isolation_and_agent_eval.py
-├── app.py                      # Streamlit interactive web application
+├── streamlit_app.py            # Streamlit interactive web application
 ├── architecture_plan.md        # Authoritative system architectural specification
 ├── architecture_diagram.svg    # Standalone vector architecture diagram
 ├── generate_diagram.py         # 300 DPI PNG diagram generator
@@ -192,7 +192,7 @@ GROQ_API_KEY=your_groq_api_key_here
 
 ### 4. Launch the Application
 ```bash
-streamlit run app.py
+streamlit run streamlit_app.py
 ```
 
 * **Upload:** Ingest multi-hundred page PDFs, Word docs, CSVs, or text files via the sidebar.
