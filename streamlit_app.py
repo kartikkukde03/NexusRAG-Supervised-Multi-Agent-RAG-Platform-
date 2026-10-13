@@ -11,7 +11,7 @@ load_dotenv()
 
 # ── Page config ────────────────────────────────────────────────────────────────
 st.set_page_config(
-    page_title="DocChat AI",
+    page_title="NexusRAG — Multi-Agent System",
     page_icon="🧠",
     layout="wide",
     initial_sidebar_state="expanded",
@@ -293,8 +293,8 @@ with st.sidebar:
     st.markdown("""
     <div style="text-align:center; padding: 1rem 0 0.5rem;">
         <div style="font-size:2rem;">🧠</div>
-        <div style="color:#c4b5fd; font-weight:700; font-size:1.1rem; letter-spacing:0.5px;">DocChat AI</div>
-        <div style="color:#475569; font-size:0.75rem;">LangGraph Multi-Agent System</div>
+        <div style="color:#c4b5fd; font-weight:700; font-size:1.1rem; letter-spacing:0.5px;">NexusRAG</div>
+        <div style="color:#475569; font-size:0.75rem;">Supervised Multi-Agent System</div>
     </div>
     """, unsafe_allow_html=True)
 
@@ -471,8 +471,8 @@ with st.sidebar:
 # Header
 col_h1, col_h2 = st.columns([3, 1])
 with col_h1:
-    st.markdown('<p class="app-header">🧠 DocChat AI</p>', unsafe_allow_html=True)
-    st.markdown('<p class="app-subheader">Chat with your documents — powered by RAG + Groq</p>', unsafe_allow_html=True)
+    st.markdown('<p class="app-header">🧠 NexusRAG</p>', unsafe_allow_html=True)
+    st.markdown('<p class="app-subheader">Supervised Multi-Agent RAG Platform — Powered by LangGraph</p>', unsafe_allow_html=True)
 
 with col_h2:
     if st.session_state.doc_ready:
@@ -492,7 +492,7 @@ if not st.session_state.doc_ready and not st.session_state.messages:
     st.markdown("""
     <div class="welcome-card">
         <div style="font-size:3rem; margin-bottom:1rem;">🤖</div>
-        <h2>Welcome to DocChat AI</h2>
+        <h2>Welcome to NexusRAG</h2>
         <p>Upload a <strong style="color:#c4b5fd">PDF or DOCX</strong> from the sidebar,
            select a previously indexed document, or ask a question to search all stored documents.<br><br>
            Answers use retrieved document content, and source results identify the file each passage came from —

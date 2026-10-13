@@ -1,4 +1,4 @@
-# DocChat AI — Multi-Agent RAG System 🧠📚
+# NexusRAG — Supervised Multi-Agent RAG Platform 🧠⚡
 
 > **A production-grade, supervised multi-agent Retrieval-Augmented Generation (RAG) platform with LangGraph orchestration, Section-Aware Hierarchical Map-Reduce, deterministic table calculations, and zero-hallucination page citations.**
 
@@ -12,9 +12,9 @@
 
 ## 📌 Overview
 
-This platform is engineered to answer complex questions and synthesize comprehensive briefings over massive document corpora (such as 100–400+ page municipal bylaws, regulatory codes, legal statutes, and technical theses). 
+**NexusRAG** is an autonomous multi-agent RAG platform engineered to answer complex questions and synthesize comprehensive briefings over massive document corpora (such as 100–400+ page municipal bylaws, regulatory codes, legal statutes, and technical theses). 
 
-Instead of relying on a single monolithic prompt (which suffers from hallucinations, cognitive drift, and arithmetic errors), this system coordinates **specialized autonomous agents** through a **supervised LangGraph state machine**. Every agent operates as a decoupled worker reading from and mutating a shared blackboard state (**`WorkflowState`**).
+Instead of relying on a single monolithic prompt (which suffers from hallucinations, cognitive drift, and arithmetic errors), **NexusRAG** coordinates **specialized autonomous agents** through a **supervised LangGraph state machine**. Every agent operates as a decoupled worker reading from and mutating a shared blackboard state (**`WorkflowState`**).
 
 ---
 
