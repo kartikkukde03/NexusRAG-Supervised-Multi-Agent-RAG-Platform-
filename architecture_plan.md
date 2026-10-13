@@ -10,19 +10,16 @@ Instead of using a single monolithic prompt that attempts to search, calculate, 
 
 ```mermaid
 flowchart TD
-    User(["👤 User Query"]) --> Orchestrator["🧠 LangGraph Orchestrator (The Conductor)"]
+    User(["User Query"]) --> Orchestrator["LangGraph Orchestrator (The Conductor)"]
 
-    subgraph Agents ["Specialized Agents (Decoupled Workers)"]
-        Planner["🎯 PlannerAgent\nIntent routing & pronoun rewriting"]
-        Research["🔍 ResearchAgent\nHybrid vector + keyword search"]
-        Table["📊 TableAgent\nExact math via Python code"]
-        Writer["✍️ WriterAgent\nGrounded answer drafting & streaming"]
-        Citation["🛡️ CitationAgent\nCitation validation & self-healing repair"]
-        Summary["📑 SummaryAgent\nWhole-document Map-Reduce"]
-    end
+    Orchestrator --> Planner["PlannerAgent: Intent routing and pronoun rewriting"]
+    Orchestrator --> Research["ResearchAgent: Hybrid vector and keyword search"]
+    Orchestrator --> Table["TableAgent: Exact math via Python code"]
+    Orchestrator --> Writer["WriterAgent: Grounded answer drafting and streaming"]
+    Orchestrator --> Citation["CitationAgent: Citation validation and repair"]
+    Orchestrator --> Summary["SummaryAgent: Whole-document Map-Reduce"]
 
-    Orchestrator <--> Agents
-    Orchestrator --> Output(["✅ Verified Response with [S1] Citations"])
+    Writer --> Output(["Verified Response with S1 Citations"])
 ```
 
 ### Core Design Principles:
@@ -39,22 +36,24 @@ Each agent is equipped with dedicated tools and routines tailored specifically t
 ```mermaid
 flowchart LR
     subgraph ResearchTools ["ResearchAgent Tools"]
-        T1["search_documents\n(Hybrid Vector + BM25)"]
-        T2["get_page_range\n(Specific Page Bounds)"]
-        T3["get_section\n(Chapter/Rule Filter)"]
-        T4["get_document_outline\n(TOC & Structural Bounds)"]
+        T1["search_documents - Hybrid Vector and BM25"]
+        T2["get_page_range - Specific Page Bounds"]
+        T3["get_section - Chapter and Rule Filter"]
+        T4["get_document_outline - TOC and Milestone Bounds"]
     end
 
     subgraph TableTools ["TableAgent Tools"]
-        T5["calculate_table_aggregation\n(Sum, Avg, Min, Max via Python)"]
-        T6["lookup_table_cell\n(Row & Cell Entity Lookup)"]
+        T5["calculate_table_aggregation - Math via Python"]
+        T6["lookup_table_cell - Row and Cell Lookup"]
     end
 
     subgraph CitationTools ["CitationAgent Tools"]
-        T7["verify_citations\n(Audits [S1] Tags vs Chunks)"]
-        T8["format_source_references\n(Markdown Bibliography)"]
-        T9["extract_cited_fallback\n(Safe Excerpt Fallback)"]
+        T7["verify_citations - Audit S1 Tags"]
+        T8["format_source_references - Bibliography"]
+        T9["extract_cited_fallback - Safe Excerpt Fallback"]
     end
+
+    ResearchTools --> TableTools --> CitationTools
 ```
 
 ### Detailed Agent & Tool Specifications
@@ -91,26 +90,21 @@ The multi-agent workflow is managed by a directed state machine built in **LangG
 
 ```mermaid
 flowchart TD
-    Start([START]) --> Planner["1. PlannerAgent\n• Classifies intent: full_doc | section | standard\n• Rewrites follow-up questions from history"]
-    
-    Planner --> Retrieval["2. Retrieval Dispatcher\n• full_doc ➔ SummaryAgent (Map-Reduce)\n• standard ➔ ResearchAgent (Hybrid Search)"]
-    
+    Start([START]) --> Planner["1. PlannerAgent: Classifies intent and rewrites query"]
+    Planner --> Retrieval["2. Retrieval Dispatcher: Full doc or hybrid search"]
     Retrieval --> RoutePostRetrieval{"Decision: What kind of answer?"}
     
-    RoutePostRetrieval -->|No chunks found| NoEvidence["3A. No Evidence Handler\nReturn honest 'not found' message"]
-    RoutePostRetrieval -->|Has tables + math| TableNode["3B. TableAgent\nRun deterministic Python calculation"]
-    RoutePostRetrieval -->|Evidence sparse| AnalystNode["3C. Evidence Analyst\nBounded secondary expansion query"]
-    RoutePostRetrieval -->|Normal text evidence| WriterNode["3D. WriterAgent\nDraft answer grounded in sources"]
+    RoutePostRetrieval -->|No chunks found| NoEvidence["3A. No Evidence Handler: Return honest message"]
+    RoutePostRetrieval -->|Has tables and math| TableNode["3B. TableAgent: Run Python calculation"]
+    RoutePostRetrieval -->|Evidence sparse| AnalystNode["3C. Evidence Analyst: Secondary expansion"]
+    RoutePostRetrieval -->|Normal text evidence| WriterNode["3D. WriterAgent: Draft grounded answer"]
     
     AnalystNode --> WriterNode
-    
-    WriterNode --> ValidatorNode["4. CitationAgent (Validator)\nAudit all [S1] tags against actual chunks"]
+    WriterNode --> ValidatorNode["4. CitationAgent: Audit all citations"]
     
     ValidatorNode --> RouteAudit{"Valid Citations?"}
-    
-    RouteAudit -->|Broken & repairs < 1| RepairNode["5. Citation Repair Loop\nRebuild sources or strip invalid tags"]
+    RouteAudit -->|Broken and repairs less than 1| RepairNode["5. Citation Repair Loop"]
     RepairNode --> ValidatorNode
-    
     RouteAudit -->|Valid or Max Repairs| Finish([END])
     NoEvidence --> Finish
     TableNode --> Finish
@@ -123,28 +117,27 @@ flowchart TD
 To keep the system organized, state is separated into **three distinct tiers**:
 
 ```mermaid
-flowchart LR
-    subgraph Tier1 ["Tier 1: In-Flight State Sharing\n(WorkflowState)"]
-        direction TB
-        T1A["Planner writes query & intent"]
-        T1B["Retrieval writes evidence_chunks"]
-        T1C["Writer writes draft_answer"]
-        T1D["Citation writes verified_answer"]
+flowchart TD
+    subgraph Tier1 ["Tier 1: In-Flight State Sharing - WorkflowState"]
+        T1A["Planner writes query and intent"]
+        T1B["Retrieval writes evidence chunks"]
+        T1C["Writer writes draft answer"]
+        T1D["Citation writes verified answer"]
     end
 
-    subgraph Tier2 ["Tier 2: Multi-Turn Conversation Memory\n(MemorySaver)"]
-        direction TB
-        T2A["Tracks chat_history per session_id"]
-        T2B["Resolves follow-ups: 'what about zone 2?'"]
-        T2C["Session-isolated (zero data bleeding)"]
+    subgraph Tier2 ["Tier 2: Multi-Turn Conversation Memory - MemorySaver"]
+        T2A["Tracks chat history per session ID"]
+        T2B["Resolves follow-ups and pronouns"]
+        T2C["Session-isolated to prevent data bleeding"]
     end
 
-    subgraph Tier3 ["Tier 3: Document Knowledge Base\n(ChromaDB + SQLite)"]
-        direction TB
-        T3A["Dense Vector Embeddings (all-MiniLM-L6-v2)"]
+    subgraph Tier3 ["Tier 3: Document Knowledge Base - ChromaDB and SQLite"]
+        T3A["Dense Vector Embeddings"]
         T3B["BM25 Keyword Inverted Index"]
-        T3C["Structured Tables & Chunk Metadata"]
+        T3C["Structured Tables and Chunk Metadata"]
     end
+
+    Tier1 --> Tier2 --> Tier3
 ```
 
 ### Tier 1: In-Flight State Sharing (`WorkflowState`)
@@ -181,25 +174,22 @@ Traditional top-K semantic search fails on 100–400+ page documents because it 
 
 ```mermaid
 flowchart TD
-    Doc["Uploaded Document (e.g., 400+ Pages, 1200 Chunks)"] --> Partition["1. Section-Aware Volume Partitioning\nPartition 100% of chunks into 3-4 chronological volume clusters\n(Vol 1: Pgs 1-112, Vol 2: Pgs 113-220, Vol 3: Pgs 221-437)"]
-
-    subgraph MapPhase ["2. MAP PHASE (Cluster Summaries)"]
-        direction LR
-        C1["Cluster 1 Chunks (100%)"] --> M1["LLM Map Digest 1"]
-        C2["Cluster 2 Chunks (100%)"] --> M2["LLM Map Digest 2"]
-        C3["Cluster 3 Chunks (100%)"] --> M3["LLM Map Digest 3"]
-    end
-
-    Partition --> MapPhase
-
-    subgraph ReducePhase ["3. REDUCE PHASE (Unified Synthesis)"]
-        direction TB
-        M1 & M2 & M3 --> R["WriterAgent: Synthesize All Volume Summaries"]
-        R --> FinalDoc["5-Section Executive Briefing\n1. Executive Overview & Scope\n2. Structural Breakdown & Major Sections\n3. Core Rules, Thresholds & Standards\n4. Exceptions, Special Conditions & Annexures\n5. Administrative Procedures & Directives"]
-    end
-
-    MapPhase --> ReducePhase
-    FinalDoc --> Audit["4. CitationAgent: Verifies [S1]-[S10] page bounds"]
+    Doc["Uploaded Document: 400+ Pages, 1200 Chunks"] --> Partition["1. Section-Aware Volume Partitioning into 3-4 Clusters"]
+    
+    Partition --> C1["Cluster 1: Pages 1 to 112"]
+    Partition --> C2["Cluster 2: Pages 113 to 220"]
+    Partition --> C3["Cluster 3: Pages 221 to 437"]
+    
+    C1 --> M1["Map Digest 1"]
+    C2 --> M2["Map Digest 2"]
+    C3 --> M3["Map Digest 3"]
+    
+    M1 --> R["WriterAgent: Synthesize All Volume Summaries"]
+    M2 --> R
+    M3 --> R
+    
+    R --> FinalDoc["5-Section Executive Briefing"]
+    FinalDoc --> Audit["CitationAgent: Verifies Page Bounds"]
 ```
 
 ### Key Advantages:
